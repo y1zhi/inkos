@@ -925,4 +925,42 @@ describe("agent deterministic writing tools", () => {
       }),
     ]));
   });
+
+  it("replaces Play contract wording instead of appending conflicting rules", async () => {
+    const store = new PlayStore(root);
+    await store.createWorld({
+      id: "play-contract-replace",
+      title: "午夜药房",
+      premise: "实习药剂师值夜班。",
+      mode: "open",
+      worldContract: "风险重量：普通差错 / 需要复核 / 可能追责 / 不能公开。时间按动作自然流动。",
+      visualContract: "监控冷光。",
+    });
+    await store.ensureRun("play-contract-replace", "main");
+    await store.saveCurrentState("play-contract-replace", "main", {
+      turn: 0,
+      worldContract: "风险重量：普通差错 / 需要复核 / 可能追责 / 不能公开。时间按动作自然流动。",
+    });
+
+    const tool = createPlayEditTool(root, "play-contract-replace");
+    const result = await tool.execute("play-edit-replace", {
+      worldContractReplacements: [{
+        from: "普通差错 / 需要复核 / 可能追责 / 不能公开",
+        to: "普通差错 / 需要复核 / 涉及追责 / 需要主任签字",
+      }],
+      note: "风险重量已替换。",
+    });
+
+    expect(result.details).toMatchObject({
+      kind: "play_world_updated",
+      updatedWorldContract: true,
+    });
+    const world = await store.loadWorld("play-contract-replace");
+    expect(world?.worldContract).toContain("普通差错 / 需要复核 / 涉及追责 / 需要主任签字");
+    expect(world?.worldContract).not.toContain("可能追责 / 不能公开");
+    const stateJson = JSON.parse(await readFile(join(root, "worlds", "play-contract-replace", "runs", "main", "state", "current.json"), "utf-8"));
+    expect(stateJson.turn).toBe(0);
+    expect(stateJson.worldContract).toContain("普通差错 / 需要复核 / 涉及追责 / 需要主任签字");
+    expect(stateJson.worldContract).not.toContain("可能追责 / 不能公开");
+  });
 });

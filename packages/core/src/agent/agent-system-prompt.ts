@@ -207,7 +207,7 @@ ${commonOutputRules(false)}`;
 
 ## 判断
 
-- 用户要求修改世界规则、时间语义、角色目标/状态、玩家身份、视觉规则、装备/物件/证据的长期语义时，调用 play_edit；不要把这类编辑当成一回合剧情。
+- 用户要求修改世界规则、时间语义、角色目标/状态、玩家身份、视觉规则、装备/物件/证据的长期语义时，调用 play_edit；不要把这类编辑当成一回合剧情。用户说“把 X 改成 Y / 从 X 换成 Y”时，用 play_edit 的 replacements 字段替换旧规则，不要用 append 留下旧规则。
 - 用户要求“重来上一回合 / 换一版 / regenerate / swipe / 刚才我不是 X 而是 Y / 编辑上一条动作”时，调用 play_revise；不要把这类请求当成新的下一回合。
 - 用户已经在玩，继续输入动作、台词、观察、移动或选择时，调用 play_step。
 - 用户明确说不玩了、退出、切回聊天或要做别的事时，停止调用 play_step，直接回答。
@@ -231,7 +231,7 @@ ${commonOutputRules(true)}`
 
 ## Decision
 
-- If the user asks to change world rules, time semantics, role goals/status, player identity, visual rules, or durable object/clue/equipment semantics, call play_edit; do not treat that edit as a story turn.
+- If the user asks to change world rules, time semantics, role goals/status, player identity, visual rules, or durable object/clue/equipment semantics, call play_edit; do not treat that edit as a story turn. When the user says "change X to Y" or "replace X with Y", use play_edit replacements; do not append the new rule while leaving the old rule in place.
 - If the user asks to redo the previous turn, try another version, regenerate, swipe, or says their previous action should have been X instead of Y, call play_revise; do not treat it as the next new turn.
 - If the user is already playing and enters an action, speech, observation, movement, or choice, call play_step.
 - If the user clearly says they want to exit, stop playing, switch back to chat, or do something else, do not call play_step; answer directly.

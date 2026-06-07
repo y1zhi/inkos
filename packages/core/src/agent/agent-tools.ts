@@ -1108,18 +1108,35 @@ const PlayEntityUpdateParam = Type.Object({
 
 type PlayEntityUpdateParamType = Static<typeof PlayEntityUpdateParam>;
 
+const PlayContractReplacementParam = Type.Object({
+  from: Type.String({
+    description: "Exact old wording to replace in the existing contract.",
+  }),
+  to: Type.String({
+    description: "New wording that should replace the old wording.",
+  }),
+});
+
+type PlayContractReplacementParamType = Static<typeof PlayContractReplacementParam>;
+
 const PlayEditParams = Type.Object({
   worldContract: Type.Optional(Type.String({
     description: "Full updated world contract after applying the user's requested rule change. Use when the user edits world rules, time semantics, item semantics, role autonomy, taboos, or costs.",
   })),
+  worldContractReplacements: Type.Optional(Type.Array(PlayContractReplacementParam, {
+    description: "Exact replacements for existing world-contract wording. Use when the user says to change/replace X into Y; do not append the new rule while leaving the old wording in place.",
+  })),
   worldContractAppend: Type.Optional(Type.String({
-    description: "A narrow world-contract addition when you cannot safely rewrite the full contract. Prefer full worldContract when possible.",
+    description: "A narrow new world-contract addition. Do not use this for replacements such as 'change X to Y'; use worldContractReplacements or full worldContract instead.",
   })),
   visualContract: Type.Optional(Type.String({
     description: "Full updated visual contract after applying the user's requested image/visual-rule change.",
   })),
+  visualContractReplacements: Type.Optional(Type.Array(PlayContractReplacementParam, {
+    description: "Exact replacements for existing visual-contract wording. Use when the user says to change/replace one visual rule into another.",
+  })),
   visualContractAppend: Type.Optional(Type.String({
-    description: "A narrow visual-contract addition when you cannot safely rewrite the full contract. Prefer full visualContract when possible.",
+    description: "A narrow new visual-contract addition. Do not use this for replacements such as 'change X to Y'; use visualContractReplacements or full visualContract instead.",
   })),
   premise: Type.Optional(Type.String({
     description: "Updated world premise only when the user explicitly changes premise/backstory. Do not rewrite premise for ordinary turns.",
@@ -1161,8 +1178,18 @@ export function createPlayEditTool(
       }
 
       const patch: Parameters<PlayStore["updateWorld"]>[1] = {};
-      const nextWorldContract = mergeContract(world.worldContract, params.worldContract, params.worldContractAppend);
-      const nextVisualContract = mergeContract(world.visualContract, params.visualContract, params.visualContractAppend);
+      const nextWorldContract = mergeContract(
+        world.worldContract,
+        params.worldContract,
+        params.worldContractReplacements,
+        params.worldContractAppend,
+      );
+      const nextVisualContract = mergeContract(
+        world.visualContract,
+        params.visualContract,
+        params.visualContractReplacements,
+        params.visualContractAppend,
+      );
       if (nextWorldContract !== world.worldContract) patch.worldContract = nextWorldContract;
       if (nextVisualContract !== world.visualContract) patch.visualContract = nextVisualContract;
       const premise = params.premise?.trim();
@@ -1425,13 +1452,25 @@ export function createPlayReviseTool(
   };
 }
 
-function mergeContract(existing: string, replacement: string | undefined, addition: string | undefined): string {
+function mergeContract(
+  existing: string,
+  replacement: string | undefined,
+  replacements: PlayContractReplacementParamType[] | undefined,
+  addition: string | undefined,
+): string {
   const next = replacement?.trim();
   if (next) return next;
+  let current = existing;
+  for (const patch of replacements ?? []) {
+    const from = patch.from.trim();
+    const to = patch.to.trim();
+    if (!from || !to || !current.includes(from)) continue;
+    current = current.split(from).join(to);
+  }
   const add = addition?.trim();
-  if (!add) return existing;
-  if (existing.includes(add)) return existing;
-  return existing.trim() ? `${existing.trim()}\n- ${add}` : add;
+  if (!add) return current;
+  if (current.includes(add)) return current;
+  return current.trim() ? `${current.trim()}\n- ${add}` : add;
 }
 
 function upsertPlayEditEntity(db: PlayGraphDB, update: PlayEntityUpdateParamType): boolean {
